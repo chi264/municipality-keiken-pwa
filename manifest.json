@@ -1,7 +1,7 @@
 {
-  "name": "市区町村経県値",
-  "short_name": "市町村経県値",
-  "description": "市区町村ごとの訪問ステータスをスマホに保存するPWA",
+  "name": "旅市区町村メモ",
+  "short_name": "旅市区町村",
+  "description": "旅行メモ、鉄道通過ログ、市区町村経県値をスマホに保存するPWA",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <title>市区町村経県値</title>
+    <link rel="manifest" href="manifest.json?v=1" />
+    <link rel="icon" href="icon.svg" />
+    <link rel="stylesheet" href="styles.css?v=1" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Municipality Keiken</p>
+          <h1>市区町村経県値</h1>
+          <p class="subcopy">行った、通った、泊まった市区町村をスマホに記録する。</p>
+        </div>
+        <button id="backupButton" class="icon-button" type="button" aria-label="バックアップ" title="バックアップ">↓</button>
+      </header>
+
+      <section class="score-board" aria-label="現在の達成状況">
+        <article>
+          <span id="totalScore">0</span>
+          <small>経県値</small>
+        </article>
+        <article>
+          <span id="recordedCount">0</span>
+          <small>登録済み</small>
+        </article>
+        <article>
+          <span id="stayedCount">0</span>
+          <small>宿泊</small>
+        </article>
+      </section>
+
+      <nav class="bottom-nav" aria-label="画面切り替え">
+        <button class="nav-button active" type="button" data-screen="prefScreen">全国</button>
+        <button class="nav-button" type="button" data-screen="cityScreen">市区町村</button>
+        <button class="nav-button" type="button" data-screen="statsScreen">集計</button>
+        <button class="nav-button" type="button" data-screen="settingsScreen">設定</button>
+      </nav>
+
+      <section id="prefScreen" class="screen active">
+        <div class="section-head">
+          <h2>全国マップ</h2>
+          <select id="regionFilter" aria-label="地方で絞り込み"></select>
+        </div>
+        <div id="legend" class="legend"></div>
+        <div id="prefGrid" class="pref-grid" aria-label="都道府県一覧"></div>
+      </section>
+
+      <section id="cityScreen" class="screen">
+        <div class="section-head">
+          <div>
+            <h2 id="cityTitle">市区町村</h2>
+            <p id="cityHint" class="muted">都道府県を選ぶと一覧が出ます。</p>
+          </div>
+          <select id="prefSelect" aria-label="都道府県選択"></select>
+        </div>
+        <form id="addCityForm" class="add-city-form">
+          <input id="addCityInput" type="text" placeholder="足りない市区町村を追加" autocomplete="off" />
+          <button class="small-button" type="submit">追加</button>
+        </form>
+        <div id="cityGrid" class="city-grid"></div>
+      </section>
+
+      <section id="statsScreen" class="screen">
+        <div class="section-head">
+          <h2>制覇率</h2>
+          <button id="onlyRemainingButton" class="small-button" type="button">未訪問だけ</button>
+        </div>
+        <div id="statsList" class="stats-list"></div>
+      </section>
+
+      <section id="settingsScreen" class="screen">
+        <section class="panel">
+          <h2>バックアップ</h2>
+          <p class="muted">記録はこのスマホのブラウザ内に保存されます。機種変更に備えるならJSONで保存してください。</p>
+          <div class="button-row">
+            <button id="exportButton" class="primary-button" type="button">JSONを書き出す</button>
+            <label class="file-button">
+              JSONを読み込む
+              <input id="importInput" type="file" accept="application/json" />
+            </label>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>初期化</h2>
+          <p class="muted">このスマホに保存された記録だけを消します。</p>
+          <button id="resetButton" class="danger-button" type="button">記録をリセット</button>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="editorDialog">
+      <form method="dialog" id="editorForm" class="editor">
+        <div class="dialog-head">
+          <div>
+            <p id="editorPref" class="eyebrow"></p>
+            <h2 id="editorCity"></h2>
+          </div>
+          <button class="icon-button flat" value="cancel" type="submit" aria-label="閉じる">×</button>
+        </div>
+        <label>
+          ステータス
+          <select id="statusSelect"></select>
+        </label>
+        <label>
+          訪問日
+          <input id="visitDate" type="date" />
+        </label>
+        <label>
+          メモ
+          <textarea id="memoInput" rows="4" placeholder="食べたもの、駅、温泉、また行きたい場所など"></textarea>
+        </label>
+        <div class="button-row">
+          <button class="primary-button" value="save" type="submit">保存</button>
+          <button id="clearCityButton" class="ghost-button" value="clear" type="button">未訪問に戻す</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=1"></script>
+  </body>
+</html>

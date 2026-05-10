@@ -1,13 +1,14 @@
-const APP_VERSION = "municipality-keiken-v1";
-const STORAGE_KEY = "municipality-keiken-records-v1";
+const APP_VERSION = "trip-municipality-v2";
+const STORAGE_KEY = "trip-municipality-records-v2";
 
 const statuses = [
   { id: "none", label: "未訪問", color: "#edf1ed", score: 0 },
-  { id: "passed", label: "通過", color: "#9bd0e5", score: 1 },
-  { id: "landed", label: "降りた", color: "#f1c36b", score: 2 },
-  { id: "visited", label: "観光", color: "#e77b5f", score: 3 },
-  { id: "stayed", label: "宿泊", color: "#7b61a8", score: 4 },
-  { id: "lived", label: "居住", color: "#1f3b35", score: 5 }
+  { id: "passed", label: "通過した", color: "#9bd0e5", score: 1 },
+  { id: "transfer", label: "乗り換えた", color: "#70b7a8", score: 2 },
+  { id: "landed", label: "降りた", color: "#f1c36b", score: 3 },
+  { id: "visited", label: "観光した", color: "#e77b5f", score: 4 },
+  { id: "stayed", label: "宿泊した", color: "#7b61a8", score: 5 },
+  { id: "lived", label: "住んだ", color: "#1f3b35", score: 6 }
 ];
 
 const prefectures = [
@@ -110,6 +111,33 @@ const sampleMunicipalities = {
   沖縄県: ["那覇市", "石垣市", "浦添市", "名護市", "宮古島市"]
 };
 
+const routePresets = [
+  {
+    id: "tohoku-shinkansen",
+    name: "東北新幹線 東京 → 仙台",
+    line: "東北新幹線",
+    cities: [["東京都", "千代田区"], ["東京都", "台東区"], ["東京都", "北区"], ["埼玉県", "さいたま市"], ["埼玉県", "熊谷市"], ["栃木県", "小山市"], ["栃木県", "宇都宮市"], ["福島県", "郡山市"], ["福島県", "福島市"], ["宮城県", "仙台市"]]
+  },
+  {
+    id: "tokaido-shinkansen",
+    name: "東海道新幹線 東京 → 新大阪",
+    line: "東海道新幹線",
+    cities: [["東京都", "千代田区"], ["神奈川県", "横浜市"], ["神奈川県", "小田原市"], ["静岡県", "熱海市"], ["静岡県", "静岡市"], ["愛知県", "名古屋市"], ["京都府", "京都市"], ["大阪府", "大阪市"]]
+  },
+  {
+    id: "joban-line",
+    name: "常磐線 上野 → 水戸",
+    line: "常磐線",
+    cities: [["東京都", "台東区"], ["千葉県", "松戸市"], ["千葉県", "柏市"], ["茨城県", "取手市"], ["茨城県", "土浦市"], ["茨城県", "水戸市"]]
+  },
+  {
+    id: "hokuriku-shinkansen",
+    name: "北陸新幹線 東京 → 金沢",
+    line: "北陸新幹線",
+    cities: [["東京都", "千代田区"], ["埼玉県", "さいたま市"], ["埼玉県", "熊谷市"], ["長野県", "長野市"], ["富山県", "富山市"], ["石川県", "金沢市"]]
+  }
+];
+
 let state = loadState();
 let selectedPref = state.selectedPref || "東京都";
 let regionFilter = "すべて";
@@ -122,14 +150,18 @@ const allRegions = ["すべて", ...Array.from(new Set(prefectures.map((pref) =>
 
 function loadState() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { records: {} };
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { records: {}, trips: [], rides: [], customCities: {} };
   } catch {
-    return { records: {} };
+    return { records: {}, trips: [], rides: [], customCities: {} };
   }
 }
 
 function saveState() {
   state.selectedPref = selectedPref;
+  state.records ||= {};
+  state.trips ||= [];
+  state.rides ||= [];
+  state.customCities ||= {};
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -137,18 +169,22 @@ function statusById(id) {
   return statuses.find((status) => status.id === id) || statuses[0];
 }
 
+function ensureCity(prefName, name) {
+  state.customCities ||= {};
+  state.customCities[prefName] ||= [];
+  if (!citiesForPref(prefName).some((city) => city.name === name)) {
+    state.customCities[prefName].push(name);
+  }
+}
+
 function citiesForPref(prefName) {
   const custom = state.customCities?.[prefName] || [];
   const names = Array.from(new Set([...(sampleMunicipalities[prefName] || []), ...custom]));
-  return names.map((name) => ({
-    id: cityId(prefName, name),
-    pref: prefName,
-    name
-  }));
+  return names.map((name) => ({ id: cityId(prefName, name), pref: prefName, name }));
 }
 
 function recordFor(id) {
-  return state.records[id] || { status: "none", memo: "", date: "" };
+  return state.records?.[id] || { status: "none", memo: "", date: "", tags: "", revisit: "" };
 }
 
 function recordedCities(prefName) {
@@ -175,16 +211,22 @@ function renderBaseOptions() {
   byId("prefSelect").innerHTML = prefectures.map((pref) => `<option value="${pref.name}">${pref.name}</option>`).join("");
   byId("prefSelect").value = selectedPref;
   byId("statusSelect").innerHTML = statuses.map((status) => `<option value="${status.id}">${status.label}</option>`).join("");
+  byId("railStatusSelect").innerHTML = statuses
+    .filter((status) => ["passed", "transfer", "landed"].includes(status.id))
+    .map((status) => `<option value="${status.id}">${status.label}</option>`)
+    .join("");
+  byId("routeSelect").innerHTML = routePresets.map((route) => `<option value="${route.id}">${route.name}</option>`).join("");
   byId("legend").innerHTML = statuses
     .map((status) => `<span><i style="background:${status.color}"></i>${status.label}</span>`)
     .join("");
 }
 
 function renderSummary() {
-  const records = Object.values(state.records).filter((record) => record.status !== "none");
+  const records = Object.values(state.records || {}).filter((record) => record.status !== "none");
   byId("totalScore").textContent = records.reduce((sum, record) => sum + scoreForRecord(record), 0);
   byId("recordedCount").textContent = records.length;
-  byId("stayedCount").textContent = records.filter((record) => record.status === "stayed").length;
+  byId("railCount").textContent = records.filter((record) => ["passed", "transfer"].includes(record.status)).length;
+  byId("tripCount").textContent = (state.trips || []).length;
 }
 
 function renderPrefs() {
@@ -205,58 +247,115 @@ function renderPrefs() {
 
 function renderCities() {
   const cities = citiesForPref(selectedPref);
+  const pref = prefectures.find((item) => item.name === selectedPref);
   byId("cityTitle").textContent = selectedPref;
-  byId("cityHint").textContent = `${recordedCities(selectedPref).length} / ${
-    prefectures.find((pref) => pref.name === selectedPref)?.total
-  } 市区町村を登録済み`;
+  byId("cityHint").textContent = `${recordedCities(selectedPref).length} / ${pref?.total || cities.length} 市区町村を登録済み`;
   byId("prefSelect").value = selectedPref;
   byId("cityGrid").innerHTML = cities
     .map((city) => {
       const record = recordFor(city.id);
       const status = statusById(record.status);
+      const meta = [record.date, record.tags, record.revisit ? `また行きたい ${record.revisit}` : ""].filter(Boolean).join(" ・ ");
       return `<button class="city-card" type="button" data-city-id="${city.id}" style="border-color:${status.color}">
         <header>
           <strong>${city.name}</strong>
           <span class="status-pill" style="background:${status.color}">${status.label}</span>
         </header>
-        <p>${escapeHtml(record.memo || record.date || "タップして記録")}</p>
+        <p>${escapeHtml(record.memo || meta || "タップして記録")}</p>
       </button>`;
     })
     .join("");
 }
 
+function renderRail() {
+  const route = routePresets.find((item) => item.id === byId("routeSelect").value) || routePresets[0];
+  byId("routePreview").innerHTML = route.cities
+    .map(([pref, name], index) => {
+      const record = recordFor(cityId(pref, name));
+      return `<div class="mini-card">
+        <strong>${index + 1}. ${pref} ${name}</strong>
+        <small>現在: ${statusById(record.status).label}</small>
+      </div>`;
+    })
+    .join("");
+
+  const rides = state.rides || [];
+  byId("rideLog").innerHTML = rides.length
+    ? rides
+        .slice()
+        .reverse()
+        .map((ride) => {
+          const tags = tagsHtml([ride.statusLabel, `${ride.cityCount}市区町村`].join(","));
+          return `<article class="mini-card">
+            <strong>${escapeHtml(ride.routeName)}</strong>
+            <small>${ride.date}</small>
+            ${tags}
+          </article>`;
+        })
+        .join("")
+    : `<article class="mini-card"><strong>乗車ログはまだありません</strong><p>鉄路登録を使うとここに残ります。</p></article>`;
+}
+
+function renderTrips() {
+  const trips = state.trips || [];
+  byId("tripList").innerHTML = trips.length
+    ? trips
+        .slice()
+        .reverse()
+        .map((trip) => `<article class="mini-card">
+          <strong>${escapeHtml(trip.title)}</strong>
+          <small>${trip.date || "日付なし"}</small>
+          <p>${escapeHtml(trip.memo || "メモなし")}</p>
+          ${tagsHtml(trip.tags)}
+        </article>`)
+        .join("")
+    : `<article class="mini-card"><strong>旅行メモはまだありません</strong><p>旅行ごとに訪問市区町村や乗った路線をまとめられます。</p></article>`;
+}
+
 function renderStats() {
   const rows = prefectures
-    .map((pref) => ({
-      ...pref,
-      count: recordedCities(pref.name).length,
-      ratio: prefRatio(pref.name)
-    }))
+    .map((pref) => ({ ...pref, count: recordedCities(pref.name).length, ratio: prefRatio(pref.name) }))
     .filter((pref) => !onlyRemaining || pref.count === 0);
 
   byId("onlyRemainingButton").textContent = onlyRemaining ? "すべて表示" : "未訪問だけ";
   byId("statsList").innerHTML = rows
-    .map(
-      (pref) => `<div class="stat-row">
-        <strong>${pref.name}</strong>
-        <div class="progress"><span style="width:${Math.min(pref.ratio, 100)}%"></span></div>
-        <small>${pref.count}/${pref.total}</small>
-      </div>`
-    )
+    .map((pref) => `<div class="stat-row">
+      <strong>${pref.name}</strong>
+      <div class="progress"><span style="width:${Math.min(pref.ratio, 100)}%"></span></div>
+      <small>${pref.count}/${pref.total}</small>
+    </div>`)
     .join("");
+
+  const suggestions = prefectures
+    .map((pref) => {
+      const cities = citiesForPref(pref.name);
+      const unvisited = cities.filter((city) => recordFor(city.id).status === "none");
+      return { pref, remaining: unvisited.length, next: unvisited[0], count: recordedCities(pref.name).length };
+    })
+    .filter((item) => item.count > 0 && item.remaining > 0 && item.remaining <= 2)
+    .slice(0, 5);
+
+  byId("suggestions").innerHTML = suggestions.length
+    ? suggestions
+        .map((item) => `<article class="mini-card">
+          <strong>${item.pref.name} あと${item.remaining}件</strong>
+          <p>次は${item.next.name}を埋めるとサンプル収録分を制覇できます。</p>
+        </article>`)
+        .join("")
+    : `<article class="mini-card"><strong>鉄路登録から始めるのがおすすめ</strong><p>新幹線や常磐線の通過市区町村をまとめて登録すると、提案が出やすくなります。</p></article>`;
 }
 
 function renderAll() {
   renderSummary();
   renderPrefs();
   renderCities();
+  renderRail();
+  renderTrips();
   renderStats();
 }
 
 function showScreen(screenId) {
-  document.querySelectorAll(".screen").forEach((screen) => {
-    screen.classList.toggle("active", screen.id === screenId);
-  });
+  document.querySelectorAll(".screen").forEach((screen) => screen.classList.toggle("active", screen.id === screenId));
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.screen === screenId);
   });
@@ -271,21 +370,33 @@ function openEditor(id) {
   byId("editorCity").textContent = name;
   byId("statusSelect").value = record.status;
   byId("visitDate").value = record.date || "";
+  byId("cityTags").value = record.tags || "";
+  byId("revisitSelect").value = record.revisit || "";
   byId("memoInput").value = record.memo || "";
   byId("editorDialog").showModal();
 }
 
-function exportJson() {
-  const payload = {
-    app: APP_VERSION,
-    exportedAt: new Date().toISOString(),
-    state
+function applyCityStatus(pref, name, statusId, note) {
+  ensureCity(pref, name);
+  const id = cityId(pref, name);
+  const current = statusById(recordFor(id).status);
+  const incoming = statusById(statusId);
+  if (incoming.score < current.score) return;
+  state.records[id] = {
+    ...recordFor(id),
+    status: incoming.id,
+    memo: note || recordFor(id).memo,
+    date: recordFor(id).date || new Date().toISOString().slice(0, 10)
   };
+}
+
+function exportJson() {
+  const payload = { app: APP_VERSION, exportedAt: new Date().toISOString(), state };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `municipality-keiken-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.download = `trip-municipality-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -296,7 +407,10 @@ function importJson(file) {
     try {
       const payload = JSON.parse(reader.result);
       state = payload.state?.records ? payload.state : payload;
-      if (!state.records) throw new Error("invalid");
+      state.records ||= {};
+      state.trips ||= [];
+      state.rides ||= [];
+      state.customCities ||= {};
       selectedPref = state.selectedPref || selectedPref;
       saveState();
       renderAll();
@@ -306,6 +420,15 @@ function importJson(file) {
     }
   });
   reader.readAsText(file);
+}
+
+function tagsHtml(value) {
+  const tags = String(value || "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  if (!tags.length) return "";
+  return `<div class="tag-row">${tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")}</div>`;
 }
 
 function escapeHtml(value) {
@@ -347,12 +470,41 @@ byId("addCityForm").addEventListener("submit", (event) => {
   const input = byId("addCityInput");
   const name = input.value.trim();
   if (!name) return;
-  state.customCities ||= {};
-  state.customCities[selectedPref] ||= [];
-  if (!citiesForPref(selectedPref).some((city) => city.name === name)) {
-    state.customCities[selectedPref].push(name);
-  }
+  ensureCity(selectedPref, name);
   input.value = "";
+  saveState();
+  renderAll();
+});
+
+byId("routeSelect").addEventListener("change", renderRail);
+
+byId("railForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const route = routePresets.find((item) => item.id === byId("routeSelect").value);
+  const status = byId("railStatusSelect").value;
+  route.cities.forEach(([pref, name]) => applyCityStatus(pref, name, status, `${route.line}で通過`));
+  state.rides.push({
+    id: crypto.randomUUID(),
+    routeName: route.name,
+    status,
+    statusLabel: statusById(status).label,
+    cityCount: route.cities.length,
+    date: new Date().toISOString().slice(0, 10)
+  });
+  saveState();
+  renderAll();
+});
+
+byId("tripForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.trips.push({
+    id: crypto.randomUUID(),
+    title: byId("tripTitle").value.trim(),
+    date: byId("tripDate").value,
+    tags: byId("tripTags").value.trim(),
+    memo: byId("tripMemo").value.trim()
+  });
+  byId("tripForm").reset();
   saveState();
   renderAll();
 });
@@ -363,6 +515,8 @@ byId("editorForm").addEventListener("submit", (event) => {
   state.records[editingCityId] = {
     status: byId("statusSelect").value,
     date: byId("visitDate").value,
+    tags: byId("cityTags").value.trim(),
+    revisit: byId("revisitSelect").value,
     memo: byId("memoInput").value.trim()
   };
   if (state.records[editingCityId].status === "none") delete state.records[editingCityId];
@@ -393,15 +547,16 @@ byId("importInput").addEventListener("change", (event) => {
 
 byId("resetButton").addEventListener("click", () => {
   if (!confirm("このスマホの記録をすべて削除します。よろしいですか？")) return;
-  state = { records: {} };
+  state = { records: {}, trips: [], rides: [], customCities: {} };
   saveState();
   renderAll();
   showScreen("prefScreen");
 });
 
 renderBaseOptions();
+saveState();
 renderAll();
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  navigator.serviceWorker.register("./sw.js?v=1").catch(() => {});
+  navigator.serviceWorker.register("./sw.js?v=2").catch(() => {});
 }

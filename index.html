@@ -5,42 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f766e" />
     <title>旅市区町村メモ</title>
-    <link rel="manifest" href="manifest.json?v=2" />
+    <link rel="manifest" href="manifest.json?v=3" />
     <link rel="icon" href="icon.svg" />
-    <link rel="stylesheet" href="styles.css?v=2" />
+    <link rel="stylesheet" href="styles.css?v=3" />
   </head>
   <body>
     <main class="app">
       <header class="hero">
         <div>
-          <p class="eyebrow">Trip map and rail log</p>
+          <p class="eyebrow">Municipality travel map</p>
           <h1>旅市区町村メモ</h1>
-          <p class="subcopy">旅行記録を、市区町村の色分け・鉄道通過ログ・旅メモに変換するスマホ用PWA。</p>
+          <p class="subcopy">市区町村ごとの経県値、鉄路で通った自治体、旅行メモをスマホに保存するPWA。</p>
         </div>
-        <button id="backupButton" class="icon-button" type="button" aria-label="JSONを書き出す" title="JSONを書き出す">↓</button>
+        <button id="backupButton" class="icon-button" type="button" aria-label="JSONを書き出し" title="JSONを書き出し">↓</button>
       </header>
 
       <section class="score-board" aria-label="現在の達成状況">
-        <article>
-          <span id="totalScore">0</span>
-          <small>経県値</small>
-        </article>
-        <article>
-          <span id="recordedCount">0</span>
-          <small>登録済み</small>
-        </article>
-        <article>
-          <span id="railCount">0</span>
-          <small>鉄道通過</small>
-        </article>
-        <article>
-          <span id="tripCount">0</span>
-          <small>旅行</small>
-        </article>
+        <article><span id="totalScore">0</span><small>経県値</small></article>
+        <article><span id="recordedCount">0</span><small>登録済み</small></article>
+        <article><span id="railCount">0</span><small>鉄路通過</small></article>
+        <article><span id="tripCount">0</span><small>旅行</small></article>
       </section>
 
       <nav class="bottom-nav" aria-label="画面切り替え">
-        <button class="nav-button active" type="button" data-screen="prefScreen">全国</button>
+        <button class="nav-button active" type="button" data-screen="prefScreen">地図</button>
         <button class="nav-button" type="button" data-screen="cityScreen">市区町村</button>
         <button class="nav-button" type="button" data-screen="railScreen">鉄路</button>
         <button class="nav-button" type="button" data-screen="tripScreen">旅行</button>
@@ -49,24 +37,22 @@
 
       <section id="prefScreen" class="screen active">
         <div class="section-head">
-          <h2>全国マップ</h2>
+          <div><h2>色付き地図</h2><p class="muted">都道府県をタップすると、その中の市区町村を編集できます。</p></div>
           <select id="regionFilter" aria-label="地方で絞り込み"></select>
         </div>
         <div id="legend" class="legend"></div>
+        <div id="prefTileMap" class="pref-tile-map" aria-label="都道府県タイル地図"></div>
         <div id="prefGrid" class="pref-grid" aria-label="都道府県一覧"></div>
       </section>
 
       <section id="cityScreen" class="screen">
         <div class="section-head">
-          <div>
-            <h2 id="cityTitle">市区町村</h2>
-            <p id="cityHint" class="muted">都道府県を選ぶと一覧が出ます。</p>
-          </div>
+          <div><h2 id="cityTitle">市区町村</h2><p id="cityHint" class="muted">都道府県を選ぶと一覧が出ます。</p></div>
           <select id="prefSelect" aria-label="都道府県選択"></select>
         </div>
-        <form id="addCityForm" class="inline-form">
-          <input id="addCityInput" type="text" placeholder="足りない市区町村を追加" autocomplete="off" />
-          <button class="small-button" type="submit">追加</button>
+        <form id="citySearchForm" class="inline-form">
+          <input id="citySearchInput" type="search" placeholder="市区町村を検索" autocomplete="off" />
+          <button class="small-button" type="submit">検索</button>
         </form>
         <div id="cityGrid" class="city-grid"></div>
       </section>
@@ -74,50 +60,34 @@
       <section id="railScreen" class="screen">
         <section class="panel">
           <div class="section-head compact">
-            <div>
-              <h2>鉄道移動から一括登録</h2>
-              <p class="muted">路線と区間を選ぶと、通過市区町村をまとめて登録できます。</p>
-            </div>
+            <div><h2>鉄路で一括登録</h2><p class="muted">北海道・関東中心の路線から、出発と到着を選んで通過市区町村を登録できます。</p></div>
           </div>
           <form id="railForm" class="stack">
-            <label>
-              路線・区間
-              <select id="routeSelect"></select>
-            </label>
-            <label>
-              登録ステータス
-              <select id="railStatusSelect"></select>
-            </label>
-            <button class="primary-button" type="submit">通過市区町村を登録</button>
+            <label>路線<select id="routeSelect"></select></label>
+            <div class="split-fields">
+              <label>出発<select id="railFromSelect"></select></label>
+              <label>到着<select id="railToSelect"></select></label>
+            </div>
+            <label>登録ステータス<select id="railStatusSelect"></select></label>
+            <div class="button-row">
+              <button id="selectAllRailButton" class="ghost-button" type="button">候補を全選択</button>
+              <button id="clearRailButton" class="ghost-button" type="button">候補を全解除</button>
+            </div>
+            <button class="primary-button" type="submit">選んだ市区町村を通過登録</button>
           </form>
           <div id="routePreview" class="preview-list"></div>
         </section>
-        <section class="panel">
-          <h2>乗車ログ</h2>
-          <div id="rideLog" class="card-list"></div>
-        </section>
+        <section class="panel"><h2>乗車ログ</h2><div id="rideLog" class="card-list"></div></section>
       </section>
 
       <section id="tripScreen" class="screen">
         <section class="panel">
           <h2>旅行メモ</h2>
           <form id="tripForm" class="stack">
-            <label>
-              旅行名
-              <input id="tripTitle" type="text" placeholder="2026年春 北海道旅行" required />
-            </label>
-            <label>
-              日付
-              <input id="tripDate" type="date" />
-            </label>
-            <label>
-              目的・タグ
-              <input id="tripTags" type="text" placeholder="温泉, ローカル線, ライブ遠征" />
-            </label>
-            <label>
-              メモ
-              <textarea id="tripMemo" rows="4" placeholder="乗った路線、泊まった場所、食べたもの、また行きたい場所など"></textarea>
-            </label>
+            <label>旅行名<input id="tripTitle" type="text" placeholder="2026年春 北海道旅行" required /></label>
+            <label>日付<input id="tripDate" type="date" /></label>
+            <label>目的・タグ<input id="tripTags" type="text" placeholder="温泉, ローカル線, ライブ遠征" /></label>
+            <label>メモ<textarea id="tripMemo" rows="4" placeholder="乗った路線、泊まった場所、食べたもの、また行きたい場所など"></textarea></label>
             <button class="primary-button" type="submit">旅行メモを追加</button>
           </form>
         </section>
@@ -126,25 +96,16 @@
 
       <section id="statsScreen" class="screen">
         <section class="panel">
-          <div class="section-head compact">
-            <h2>都道府県別 制覇率</h2>
-            <button id="onlyRemainingButton" class="small-button" type="button">未訪問だけ</button>
-          </div>
+          <div class="section-head compact"><h2>都道府県別 制覇率</h2><button id="onlyRemainingButton" class="small-button" type="button">未登録だけ</button></div>
           <div id="statsList" class="stats-list"></div>
         </section>
-        <section class="panel">
-          <h2>次に行くと気持ちいい場所</h2>
-          <div id="suggestions" class="card-list"></div>
-        </section>
+        <section class="panel"><h2>次に行くとよさそう</h2><div id="suggestions" class="card-list"></div></section>
         <section class="panel">
           <h2>バックアップ</h2>
-          <p class="muted">記録はこのスマホのブラウザ内に保存されます。機種変更に備えるならJSONで保存してください。</p>
+          <p class="muted">記録はこのスマホのブラウザ内に保存されます。機種変更前などはJSONを書き出してください。</p>
           <div class="button-row">
-            <button id="exportButton" class="primary-button" type="button">JSONを書き出す</button>
-            <label class="file-button">
-              JSONを読み込む
-              <input id="importInput" type="file" accept="application/json" />
-            </label>
+            <button id="exportButton" class="primary-button" type="button">JSONを書き出し</button>
+            <label class="file-button">JSONを読み込む<input id="importInput" type="file" accept="application/json" /></label>
           </div>
           <button id="resetButton" class="danger-button" type="button">記録をリセット</button>
         </section>
@@ -154,39 +115,14 @@
     <dialog id="editorDialog">
       <form method="dialog" id="editorForm" class="editor">
         <div class="dialog-head">
-          <div>
-            <p id="editorPref" class="eyebrow"></p>
-            <h2 id="editorCity"></h2>
-          </div>
+          <div><p id="editorPref" class="eyebrow"></p><h2 id="editorCity"></h2></div>
           <button class="icon-button flat" value="cancel" type="submit" aria-label="閉じる">×</button>
         </div>
-        <label>
-          ステータス
-          <select id="statusSelect"></select>
-        </label>
-        <label>
-          訪問日
-          <input id="visitDate" type="date" />
-        </label>
-        <label>
-          目的・タグ
-          <input id="cityTags" type="text" placeholder="城, 温泉, 新幹線, 聖地巡礼" />
-        </label>
-        <label>
-          また行きたい度
-          <select id="revisitSelect">
-            <option value="">未設定</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
-        </label>
-        <label>
-          メモ
-          <textarea id="memoInput" rows="4" placeholder="食べたもの、駅、温泉、また行きたい場所など"></textarea>
-        </label>
+        <label>ステータス<select id="statusSelect"></select></label>
+        <label>訪問日<input id="visitDate" type="date" /></label>
+        <label>目的・タグ<input id="cityTags" type="text" placeholder="城, 温泉, 新幹線, 聖地巡礼" /></label>
+        <label>また行きたい度<select id="revisitSelect"><option value="">未設定</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+        <label>メモ<textarea id="memoInput" rows="4" placeholder="食べたもの、駅、温泉、また行きたい場所など"></textarea></label>
         <div class="button-row">
           <button class="primary-button" value="save" type="submit">保存</button>
           <button id="clearCityButton" class="ghost-button" value="clear" type="button">未訪問に戻す</button>
@@ -194,6 +130,7 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=2"></script>
+    <script src="municipalities-data.js?v=3"></script>
+    <script src="app.js?v=3"></script>
   </body>
 </html>

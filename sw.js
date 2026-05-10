@@ -1,10 +1,10 @@
-const CACHE_NAME = "municipality-keiken-v1";
+const CACHE_NAME = "trip-municipality-v2";
 const APP_FILES = [
   "./",
   "./index.html",
-  "./styles.css?v=1",
-  "./app.js?v=1",
-  "./manifest.json?v=1",
+  "./styles.css?v=2",
+  "./app.js?v=2",
+  "./manifest.json?v=2",
   "./icon.svg"
 ];
 
